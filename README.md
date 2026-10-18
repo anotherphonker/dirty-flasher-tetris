@@ -112,8 +112,9 @@ ROM zip either.
 Some unofficial builds for tetris ship a **fenrir-patched** `lk.img` in their
 OTA payload. Fenrir ([R0rt1z2/fenrir](https://github.com/R0rt1z2/fenrir),
 archived Sep 2026) is a PoC that patches `sec_get_vfy_policy()` inside the
-`bl2_ext` component to break the secure boot chain after the preloader. You do
-**not** need it on a stock unlocked bootloader, and flashing it may trigger a
+`bl2_ext` component to break the secure boot chain after the preloader. Google
+made changes with PI so it's not working right know (basic integrity only, 
+bootloader shows locked and shows rkp on da key attestation app tho...), and flashing it may trigger a
 factory reset. Its release notes also state that Nothing patched the issue in
 NOS 4 stable, so it no longer works on current preloader firmware.
 
