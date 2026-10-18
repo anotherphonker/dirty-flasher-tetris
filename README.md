@@ -115,8 +115,7 @@ archived Sep 2026) is a PoC that patches `sec_get_vfy_policy()` inside the
 `bl2_ext` component to break the secure boot chain after the preloader. Google
 made changes with PI so it's not working right know (basic integrity only, 
 bootloader shows locked and shows rkp on da key attestation app tho...), and flashing it may trigger a
-factory reset. Its release notes also state that Nothing patched the issue in
-NOS 4 stable, so it no longer works on current preloader firmware.
+factory reset.
 
 Instead, use a clean stock `lk.img` from the official firmware archive
 ([spike0en/nothing_archive](https://github.com/spike0en/nothing_archive)) and
