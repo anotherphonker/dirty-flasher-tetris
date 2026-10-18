@@ -1,13 +1,20 @@
-# CMF Phone 1 (tetris) — LineageOS Dirty Flash
+# CMF Phone 1 (tetris) — ROM Dirty Flasher
 
-A fastboot script that **dirty-flashes** an extracted LineageOS update on the
+A fastboot script that **dirty-flashes** any extracted ROM update on the
 CMF Phone 1 (codename **tetris**, MT6878 / Dimensity 7300) **without wiping
 user data**.
 
-Made for updates that ship as `payload.bin` and cannot be sideloaded directly
-(e.g. an unofficial build whose LineageOS is not signed for your recovery): extract
-the images with [otaripper](https://github.com/syedinsaf/otaripper), drop this
-script next to them, and flash.
+Works with any ROM that ships partition images — **NothingOS, LineageOS,
+crDroid, Infinity X**, and friends. Two typical use cases:
+
+1. **Custom ROM updates** whose OTA ships as `payload.bin` and cannot be
+   sideloaded (e.g. an unofficial build whose OTA is not signed for your
+   recovery): extract the images with
+   [otaripper](https://github.com/syedinsaf/otaripper), drop this script next
+   to them, and flash.
+2. **Updating NothingOS itself from a PC** — instead of waiting for the OTA,
+   extract a full firmware/OTA package and dirty-flash the new version on top
+   of the running one.
 
 > **Dirty flash** = partitions are written over the current install. `userdata`
 > and `metadata` are never touched, only the **current slot** is written.
@@ -18,6 +25,8 @@ script next to them, and flash.
   flashed — you see the full plan up front, nothing is flashed silently.
 - Correct name mapping for this device (`preloader_raw.img` → `preloader_a`,
   `bl2_ext` is not a partition, and so on — see below).
+- ROM-agnostic: it flashes whatever the extracted update contains. Partial
+  extractions work; missing images are simply skipped.
 - `lk.img` is verified against the **official** stock SHA-256 before flashing,
   with an extra warning for fenrir-patched images.
 - Bootloader-fastboot phase (boot chain, firmware) and fastbootd phase
@@ -35,14 +44,16 @@ script next to them, and flash.
 ## Usage
 
 1. Put `dirty_flash.bat` in the folder with the extracted `*.img` files
-   (otaripper output + a clean stock `lk.img`).
+   (otaripper output + a clean stock `lk.img` if the update ships a patched
+   one).
 2. Boot the phone into bootloader mode: `adb reboot bootloader`
 3. Run the script, read the plan table, answer the prompts.
 
-Typical answers for a LineageOSOS update:
+Typical answers for a ROM update:
 
-- **Firmware images?** `N` — the ROM update does not touch early-boot firmware,
-  and a wrong preloader can hard-brick the phone.
+- **Firmware images?** `N` — a ROM update does not touch early-boot firmware,
+  and a wrong preloader can hard-brick the phone. Say `Y` only for a full
+  firmware update with a matching image set (e.g. a full NothingOS package).
 - **Flash lk.img?** `Y` — only after the script prints
   `Verdict: KNOWN STOCK lk` (see below).
 - Final confirmation: `Y`.
@@ -66,7 +77,7 @@ For a full image set the plan looks like this:
 | `boot`, `dtbo`, `init_boot`, `vendor_boot` | `boot_a`, `dtbo_a`, ... |
 | `vbmeta`, `vbmeta_system`, `vbmeta_vendor` | `vbmeta_a`, ... (optional `VBMETA_FLAGS`) |
 | `lk.img` *(asked, hash-checked)* | `lk_a` |
-| `apusys ccu connsys_bt connsys_gnss connsys_wifi dpm gpueb gz logo mcf_LineageOS mcupm modem pi_img scp spmfw sspm tee vcp` *(asked)* | `name_a` |
+| `apusys ccu connsys_bt connsys_gnss connsys_wifi dpm gpueb gz logo mcf_ota mcupm modem pi_img scp spmfw sspm tee vcp` *(asked)* | `name_a` |
 | `preloader_raw.img` *(asked)* | `preloader_a` |
 
 **Phase 2 — fastbootd (`fastboot reboot fastboot`)**
@@ -110,17 +121,16 @@ ROM zip either.
 ## lk.img and fenrir
 
 Some unofficial builds for tetris ship a **fenrir-patched** `lk.img` in their
-LineageOS payload. Fenrir ([R0rt1z2/fenrir](https://github.com/R0rt1z2/fenrir),
+OTA payload. Fenrir ([R0rt1z2/fenrir](https://github.com/R0rt1z2/fenrir),
 archived Sep 2026) is a PoC that patches `sec_get_vfy_policy()` inside the
 `bl2_ext` component to break the secure boot chain after the preloader. Google
-made changes with PI so it's not working right know (basic integrity only, 
-bootloader shows locked and shows rkp on da key attestation app tho...), and flashing it may trigger a
-factory reset.
+has since made Play Integrity changes, so it does not work properly anymore —
+basic integrity only; key attestation apps still report the bootloader as
+locked with RKP — and flashing it may trigger a factory reset. You do **not**
+need it on a stock unlocked bootloader anyway.
 
-Instead, use a clean stock `lk.img` from the official firmware archive
-([spike0en/nothing_archive](https://github.com/spike0en/nothing_archive)) and
-let the script verify it. Known stock hash for
-`Tetris_B4.1-260928-1140` (`lk.img`):
+Instead, use a clean stock `lk.img` and let the script verify it. Known stock
+hash for `Tetris_B4.1-260928-1140` (`lk.img`):
 
 ```
 06fe7a8ec097ec05c13c416ffef3989b8c85190bf6621ab0be7d509fa1543dbd
@@ -133,8 +143,17 @@ The script computes the SHA-256 of your `lk.img`:
   if you know exactly what the file is.
 - It also scans the image for the string `fenrir` as a best-effort extra check.
 
-Update `STOCK_LK_SHA256` at the top of the script when a newer official
-firmware archive is released.
+Where to get a clean `lk.img` and how to update the hash:
+
+- **Custom ROM update shipping a patched lk:** take `lk.img` from the official
+  firmware archive
+  ([spike0en/nothing_archive](https://github.com/spike0en/nothing_archive))
+  and drop it into the image folder.
+- **NothingOS update:** the bundled `lk.img` is already stock. If the script
+  says `UNKNOWN`, that usually just means a newer build than the hash embedded
+  in the script — verify it against the `Tetris_*-hash.sha256` file of that
+  release on the nothing_archive releases page, then update
+  `STOCK_LK_SHA256` at the top of the script.
 
 ## Differences from `flash_all.bat` (nothing_flasher)
 
@@ -172,7 +191,7 @@ firmware archive is released.
   `flash_all.bat`, the reference for partition names and mappings.
 - [R0rt1z2/fenrir](https://github.com/R0rt1z2/fenrir) — the `bl2_ext`/`lk`
   boot chain write-up.
-- [syedinsaf/otaripper](https://github.com/syedinsaf/otaripper) — LineageOS payload
+- [syedinsaf/otaripper](https://github.com/syedinsaf/otaripper) — OTA payload
   extraction.
 
 ## Disclaimer

@@ -1,12 +1,11 @@
-:: SPDX-License-Identifier: MIT
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
-title CMF Phone 1 tetris - LineageOS Dirty Flash
+title CMF Phone 1 tetris - ROM Dirty Flash
 
 echo.
 echo ================================================================
-echo   CMF Phone 1 "tetris" - LineageOS dirty flash
+echo   CMF Phone 1 "tetris" - ROM dirty flash
 echo   No data wipe. Current slot only. Firmware only if you say so.
 echo ================================================================
 echo.
@@ -304,7 +303,7 @@ if defined N_FIRM echo   %N_FIRM%
 if defined PREFILE echo   %PREFILE%  -^>  preloader_%SLOT%
 echo.
 echo These are early boot firmware images, NOT ROM images.
-echo They are not required to update LineageOS.
+echo They are not required for a ROM update.
 echo A wrong preloader image can HARD-BRICK the phone and it can then
 echo only be recovered with MediaTek SP Flash tools.
 echo Flash them only for a full firmware update with matching images.
@@ -330,7 +329,7 @@ findstr /m /i /c:"fenrir" "%IMG%\%LKFILE%" >nul 2>&1 && echo [WARN] The file con
 if /i "%LKH%"=="%STOCK_LK_SHA256%" goto :lk_stock
 echo.
 echo Verdict: UNKNOWN - this is NOT the known stock lk of NOS B4.1-260928-1140.
-echo It may be the fenrir-patched lk that ships inside the LineageOS OTA.
+echo It may be the fenrir-patched lk that ships inside some OTAs.
 echo Flashing a patched lk can factory-reset the device and is NOT needed
 echo on a stock unlocked bootloader.
 echo Say Y only if you know exactly what this file is.
