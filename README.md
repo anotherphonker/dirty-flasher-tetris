@@ -1,6 +1,6 @@
-# CMF Phone 1 (tetris) — LineageOS Dirty Flash
+# CMF Phone 1 (tetris) — OTA Dirty Flash
 
-A fastboot script that **dirty-flashes** an extracted LineageOS OTA update on the
+A fastboot script that **dirty-flashes** an extracted OTA OTA update on the
 CMF Phone 1 (codename **tetris**, MT6878 / Dimensity 7300) **without wiping
 user data**.
 
@@ -39,7 +39,7 @@ script next to them, and flash.
 2. Boot the phone into bootloader mode: `adb reboot bootloader`
 3. Run the script, read the plan table, answer the prompts.
 
-Typical answers for a LineageOS update:
+Typical answers for a OTAOS update:
 
 - **Firmware images?** `N` — the ROM update does not touch early-boot firmware,
   and a wrong preloader can hard-brick the phone.
