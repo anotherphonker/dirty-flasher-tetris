@@ -1,123 +1,181 @@
-# CMF Phone 1 (tetris) — LineageOS Dirty Flash Scripti
+# CMF Phone 1 (tetris) — LineageOS Dirty Flash
 
-`dirty_flash.bat`, OTARipper ile çıkardığın OTA imajlarını **veri silmeden**
-(dirty) flashlayan, slot farkındalıklı bir Windows scriptidir. `payload.bin`
-imzalama derdi olmadan, LineageOS güncellemesini fastboot ile uygular.
+A fastboot script that **dirty-flashes** an extracted LineageOS OTA update on the
+CMF Phone 1 (codename **tetris**, MT6878 / Dimensity 7300) **without wiping
+user data**.
 
-## Neden bu script var — chatbot scriptindeki sorunlar
+Made for updates that ship as `payload.bin` and cannot be sideloaded directly
+(e.g. an unofficial build whose OTA is not signed for your recovery): extract
+the images with [otaripper](https://github.com/syedinsaf/otaripper), drop this
+script next to them, and flash.
 
-Elindeki AI scripti fena değil (fastbootd geçişi, VAB snapshot kontrolü iyi
-düşünülmüş) ama güvenilir değil, çünkü:
+> **Dirty flash** = partitions are written over the current install. `userdata`
+> and `metadata` are never touched, only the **current slot** is written.
 
-1. **Uydurma hash'ler.** `FENRIR_HASHES` listesindeki `c480e872...` ve
-   `ce6c05d0...` diye bir gerçeklik kaynağı yok. Benim scriptimdeki stock lk
-   hash'i **resmi** nothing_archive `Tetris_B4.1-260928-1140-hash.sha256`
-   dosyasından alınmadır:
-   `06fe7a8ec097ec05c13c416ffef3989b8c85190bf6621ab0be7d509fa1543dbd`.
-   Bilinmeyen her hash "UNKNOWN (fenrir olabilir)" olarak uyarır.
-2. **`bl2_ext` yanlış eşlenmiş.** `bl2_ext` ayrı bir partition değildir.
-   `lk_a` partition'ının içindeki paket, fenrir'in kendi README'si ve
-   R0rt1z2'nin blogundaki DA dökümüne göre `lk + bl2_ext + aee + lk_main_dtb
-   + lk_dtbo` imajlarından oluşur (preloader logu: `part: lk_a img: bl2_ext`).
-   Yani update'teki "fenrirli lk.img" = içi patch'li bl2_ext olan lk paketidir.
-   Tek başına `bl2_ext.img`'i bir yere flashlamak boot zincirini bozar;
-   script bunları `[BLOCK]` gösterir, tam `lk.img`'i hash kontrolüyle sorar.
-3. **`preloader_raw.img` → `preloader` eşlemesini bilmiyor.** nothing_flasher'ın
-   kendi `flash_all.bat`i ve fenrir'in flash talimatı nettir:
-   `fastboot flash preloader_a preloader_raw.img`. Yani dosya adı ≠ partition adı.
-4. **Sessiz bloklar.** Neden flashlanmadığı anlatılmadan dosyalar atlanıyor.
-   Bu scriptte her dosya plan tablosunda görünür; sadece kimlik/wipe
-   partitionları sessizce engellenir (aşağıya bak).
+## Features
 
-## Neden (lk hariç) bloklanmış dosyalar vardı?
+- Scans the image folder and classifies every `*.img` before anything is
+  flashed — you see the full plan up front, nothing is flashed silently.
+- Correct name mapping for this device (`preloader_raw.img` → `preloader_a`,
+  `bl2_ext` is not a partition, and so on — see below).
+- `lk.img` is verified against the **official** stock SHA-256 before flashing,
+  with an extra warning for fenrir-patched images.
+- Bootloader-fastboot phase (boot chain, firmware) and fastbootd phase
+  (logical partitions inside `super`), including Virtual A/B snapshot handling.
+- Never writes identity / wipe partitions (IMEI, lock state, keys, data) —
+  these are blocked unconditionally.
 
-O scriptteki `bl2_ext preloader preloader_raw` bloğu aslında üç farklı
-durumu karıştırıyor:
+## Requirements
 
-| Dosya | Gerçek durumu | Bu scriptte |
+- Windows, phone with an **unlocked bootloader**.
+- USB drivers working in both bootloader fastboot and fastbootd
+  (Android Bootloader Interface).
+- `platform-tools` — downloaded automatically if not present.
+
+## Usage
+
+1. Put `dirty_flash.bat` in the folder with the extracted `*.img` files
+   (OTARipper output + a clean stock `lk.img`).
+2. Boot the phone into bootloader mode: `adb reboot bootloader`
+3. Run the script, read the plan table, answer the prompts.
+
+Typical answers for a LineageOS update:
+
+- **Firmware images?** `N` — the ROM update does not touch early-boot firmware,
+  and a wrong preloader can hard-brick the phone.
+- **Flash lk.img?** `Y` — only after the script prints
+  `Verdict: KNOWN STOCK lk` (see below).
+- Final confirmation: `Y`.
+
+First boot after an update can take a few minutes.
+
+## How images are handled
+
+| Tag | Meaning | What happens |
 |---|---|---|
-| `bl2_ext.img` | lk paketinin iç imajı, partition değil | `[BLOCK]` — tek başına flashlanmaz |
-| `preloader_raw.img` | `preloader` partition'ına gider | `[ASK]` — firmware sorusunun parçası |
-| `preloader.img` | aynı partition (yedek ad) | `[ASK]` — `preloader_raw` varsa o tercih edilir |
+| `[AUTO]` | ROM images | Flashed without asking |
+| `[ASK]` | lk / firmware / unknown names | Separate question each |
+| `[BLOCK]` | identity, wipe or device-state data | Never flashed |
 
-`preloader` konusundaki temkinli yaklaşım **doğru**: BootROM'dan sonra çalışan
-ilk koddur, ROM güncellemesiyle ilgisi yoktur, yanlış imaj telefona **hard
-brick** atar (MTK SP Flash ile ancak kurtarılır). Ama bu, sessiz blok değil
-**açık bir soru + uyarı** olmalı — öyle yaptım. xiaomi.eu mantığına en yakın
-davranış budur: "her şey flashlanır" dersen (3 soruya da Y) firmware dahil
-her şey flashlanır; sadece aşağıdaki liste asla flashlanmaz.
+For a full image set the plan looks like this:
 
-**Asla flashlanmayanlar** (kimlik / wipe / cihaz durumu — xiaomi.eu scriptleri
-bunları da flashlamaz, ROM zipinde zaten bulunmazlar):
+**Phase 1 — bootloader fastboot mode**
 
-`userdata metadata cache frp sdcard nvram nvdata nvcfg protect1 protect2
-persist proinfo seccfg super_empty`
+| Images | Target |
+|---|---|
+| `boot`, `dtbo`, `init_boot`, `vendor_boot` | `boot_a`, `dtbo_a`, ... |
+| `vbmeta`, `vbmeta_system`, `vbmeta_vendor` | `vbmeta_a`, ... (optional `VBMETA_FLAGS`) |
+| `lk.img` *(asked, hash-checked)* | `lk_a` |
+| `apusys ccu connsys_bt connsys_gnss connsys_wifi dpm gpueb gz logo mcf_ota mcupm modem pi_img scp spmfw sspm tee vcp` *(asked)* | `name_a` |
+| `preloader_raw.img` *(asked)* | `preloader_a` |
 
-- `nvram/nvdata/protect*` → IMEI
-- `persist` → DRM/anahtarlar
-- `seccfg` → kilit durumu
-- `super_empty` → `wipe-super` ile tüm super'i (yani tüm ROM'u) siler
-- `userdata/metadata` → veri silme (dirty flash'te asla)
+**Phase 2 — fastbootd (`fastboot reboot fastboot`)**
 
-## Ekran akışı
+| Images | Target |
+|---|---|
+| `system system_ext product vendor odm odm_dlkm vendor_dlkm system_dlkm` | `name_a` |
 
-1. **Plan tablosu**: klasördeki her `*.img` → hedef partition, `[AUTO]/[ASK]/[BLOCK]`
-2. **Firmware sorusu** (varsa): modem/tee/gz/... + preloader. ROM güncellemesi
-   için gerekmez; sadece tam firmware güncellemesi istiyorsan Y.
-3. **lk sorusu**: SHA-256 hesaplanır, resmi stock hash ile karşılaştırılır,
-   dosyada "fenrir" dizgesi aranır. UNKNOWN ise uzun uyarı + onay.
-4. **Bilinmeyen isimler** (varsa): partition adını dosya adından alır, onay ister.
-5. **Son onay** → Phase 1 (bootloader fastboot: firmware, lk, boot, dtbo, vbmeta*)
-   → `fastboot reboot fastboot` → VAB snapshot kontrolü → Phase 2 (fastbootd:
-   system, vendor, product, ... ) → `--set-active=<mevcut slot>` → `reboot`.
+Then `fastboot --set-active=<current-slot>` and `fastboot reboot`.
 
-## lk.img konusu — fenrir
+### Name mapping notes
 
-- Fenrir, `bl2_ext` içindeki `sec_get_vfy_policy()`'yi patch'leyip zinciri
-  kıran bir PoC exploitidir ve **repo 20 Eylül 2026'da arşivlenmiştir**.
-- Kendi release notu: *"Nothing patched this in NOS 4 stable"* — yani güncel
-  B4.1 preloader'da açık kapalı; fenrir zinciri bugün çalışamaz. Senin
-  "fenrir stabil değil, amacına ulaşamıyor" gözleminle birebir uyumlu.
-- Fenrir'li lk flashlamak factory reset gerektirebilir (unlock mantığı).
-- Unofficial LineageOS 24 tetris build'lerinden birinin manifestindeki not:
-  *"fenrir patched-LK support: deliberately excluded... A stock unlocked
-  bootloader does not need it."* — yani **stock unlock'lu lk yeterlidir**.
-- Sonuç: update'teki fenrirli `lk.img`'i **kullanma**, nothing_archive'den
-  aldığın temiz `lk.img`'i klasöre koy (şu an öyle yapmışsın). Script zaten
-  hash'i doğrular, eşleşirse "KNOWN STOCK" der.
+- **`preloader_raw.img` goes to the `preloader` partition.** Same mapping as
+  nothing_flasher's `flash_all.bat` and the fenrir flash instructions. The file
+  name is not the partition name. `preloader.img` (if present) is accepted as an
+  alternative; `preloader_raw.img` wins if both exist.
+- **`bl2_ext` is not a partition on this device.** The `lk` partition is a
+  package containing `lk + bl2_ext + aee + lk_main_dtb + lk_dtbo` (see the
+  fenrir README and R0rt1z2's write-up; the preloader log even loads it as
+  `part: lk_a img: bl2_ext`). A standalone `bl2_ext.img`/`aee.img`/... is an
+  unpacked sub-image and is blocked — only a complete `lk.img` can be flashed
+  to `lk_a`.
+- **`fastboot getvar product` reports `k6878v1_64`** (the MT6878 platform name),
+  not `tetris`. Both values are accepted.
 
-## Kullanım
+### Never flashed (hard block)
 
-1. `dirty_flash.bat`'i imajların olduğu klasöre kopyala
-   (OTARipper çıktısı + stock `lk.img` yanına). Gerekirse `IMG=`'i düzenle.
-2. Telefonu bootloader moduna al: `adb reboot bootloader`
-3. `dirty_flash.bat`'i çalıştır, planı oku, sorulara cevap ver.
-4. Biterse telefon açılır; ilk açılış birkaç dakika sürebilir.
+| Partitions | Why |
+|---|---|
+| `nvram`, `nvdata`, `nvcfg`, `protect1`, `protect2` | IMEI / calibration |
+| `persist` | DRM, device keys |
+| `seccfg` | bootloader lock state |
+| `proinfo` | serial / product info |
+| `frp` | factory reset protection data |
+| `userdata`, `metadata`, `cache`, `sdcard` | user data |
+| `super_empty` | wiping the super partition layout |
 
-Gereksinimler: Windows, USB sürücüsü (Android Bootloader Interface), internet
-yalnızca platform-tools indirilecekse.
+These are never part of a ROM update. Stock flashers never write them from a
+ROM zip either.
 
-## Bilinçli farklar (clean `flash_all.bat`'e göre)
+## lk.img and fenrir
 
-- `userdata`/`metadata` asla silinmez (o script sorar, bu script hiç sormaz).
-- `wipe-super`/`super_empty` yok; logical partitionlar silinip yeniden
-  yaratılmaz, üzerine yazılır (fastboot imaja göre otomatik boyutlar).
-- Yalnızca **mevcut slot** yazılır; diğer slot'a dokunulmaz (geri dönüş
-  imkanı). flash_all her şeyi slot a'ya yazar.
-- VAB snapshot: `merging` ise durur (önce Android'de birleştir), bekleyen
-  update varsa `snapshot-update cancel` eder.
+Some unofficial builds for tetris ship a **fenrir-patched** `lk.img` in their
+OTA payload. Fenrir ([R0rt1z2/fenrir](https://github.com/R0rt1z2/fenrir),
+archived Sep 2026) is a PoC that patches `sec_get_vfy_policy()` inside the
+`bl2_ext` component to break the secure boot chain after the preloader. You do
+**not** need it on a stock unlocked bootloader, and flashing it may trigger a
+factory reset. Its release notes also state that Nothing patched the issue in
+NOS 4 stable, so it no longer works on current preloader firmware.
 
-## Sorun giderme
+Instead, use a clean stock `lk.img` from the official firmware archive
+([spike0en/nothing_archive](https://github.com/spike0en/nothing_archive)) and
+let the script verify it. Known stock hash for
+`Tetris_B4.1-260928-1140` (`lk.img`):
 
-- **`getvar product` cihazda `k6878v1_64` döner** (MT6878 platform adı, yani
-  Dimensity 7300) — bozukluk değil. Script hem `tetris` hem `k6878v1_64`
-  değerlerini kabul eder.
-- **fastbootd gelmiyor (Windows)**: telefon fastbootd'de yeniden enumere olur,
-  sürücü takılabilir. Aygıt Yöneticisi'nden sürücüyü tazele / USB2 portu dene.
-- **Snapshot merge uyarısı**: Android'i aç, Ayarlar'dan birleştirme bitsin,
-  tekrar dene.
-- **Yarım kaldı**: hiçbir şey silinmez; scripti tekrar çalıştır, yazılanlar
-  tekrar yazılır.
-- **Bootloop**: bootloader hâlâ çalışır; eski imajları veya diğer slot'u
-  flashlayarak geri dönebilirsin. lk yüzündense stock `lk.img`'i geri yaz:
-  `fastboot flash lk_a lk.img`
+```
+06fe7a8ec097ec05c13c416ffef3989b8c85190bf6621ab0be7d509fa1543dbd
+```
+
+The script computes the SHA-256 of your `lk.img`:
+
+- `Verdict: KNOWN STOCK lk` → matches the official image, flash on request.
+- `Verdict: UNKNOWN` → does **not** match; it may be fenrir-patched. Flash only
+  if you know exactly what the file is.
+- It also scans the image for the string `fenrir` as a best-effort extra check.
+
+Update `STOCK_LK_SHA256` at the top of the script when a newer official
+firmware archive is released.
+
+## Differences from `flash_all.bat` (nothing_flasher)
+
+`flash_all.bat` is a **clean stock firmware flasher**; this script is a
+**dirty ROM updater**:
+
+- No `wipe data` step; `userdata`/`metadata` are never erased.
+- No `wipe-super` / logical delete+create — logical partitions are written in
+  place (fastboot resizes them to fit the image).
+- Only the **current** slot is written; the other slot is left untouched as a
+  fallback (`flash_all.bat` forces everything to slot `a`).
+- `lk` is not flashed blindly with the firmware group — it gets its own gate.
+- Images are discovered from the folder instead of a fixed list, so partial
+  extractions work and unknown files get an explicit question.
+
+## Troubleshooting
+
+- **fastbootd never appears (Windows):** the phone re-enumerates in fastbootd
+  mode and the driver can get stuck. Refresh the driver in Device Manager or
+  try a USB 2.0 port.
+- **"snapshot merge is in progress":** boot Android, let the Virtual A/B merge
+  finish, then run the script again.
+- **Interrupted run:** nothing is wiped; re-run the script, already written
+  partitions are simply written again.
+- **Bootloop:** bootloader mode still works — re-run the script with the
+  previous images, or flash just `lk`: `fastboot flash lk_a lk.img`.
+- **Wrong product name:** if `fastboot getvar product` returns something else
+  entirely, fix `TARGET` at the top of the script.
+
+## Credits
+
+- [spike0en/nothing_archive](https://github.com/spike0en/nothing_archive) —
+  official firmware archives and hash files for tetris.
+- [spike0en/nothing_flasher](https://github.com/spike0en/nothing_flasher) —
+  `flash_all.bat`, the reference for partition names and mappings.
+- [R0rt1z2/fenrir](https://github.com/R0rt1z2/fenrir) — the `bl2_ext`/`lk`
+  boot chain write-up.
+- [syedinsaf/otaripper](https://github.com/syedinsaf/otaripper) — OTA payload
+  extraction.
+
+## Disclaimer
+
+Flashing partitions can brick your device. Everything here is at your own
+risk. Read the plan table before answering any prompt.
