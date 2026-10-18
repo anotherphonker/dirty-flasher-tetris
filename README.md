@@ -1,12 +1,12 @@
-# CMF Phone 1 (tetris) — OTA Dirty Flash
+# CMF Phone 1 (tetris) — LineageOS Dirty Flash
 
-A fastboot script that **dirty-flashes** an extracted OTA OTA update on the
+A fastboot script that **dirty-flashes** an extracted LineageOS update on the
 CMF Phone 1 (codename **tetris**, MT6878 / Dimensity 7300) **without wiping
 user data**.
 
 Made for updates that ship as `payload.bin` and cannot be sideloaded directly
-(e.g. an unofficial build whose OTA is not signed for your recovery): extract
-the images with [otaripper](https://github.com/syedinsaf/otaripper), drop this
+(e.g. an unofficial build whose LineageOS is not signed for your recovery): extract
+the images with [LineageOSripper](https://github.com/syedinsaf/LineageOSripper), drop this
 script next to them, and flash.
 
 > **Dirty flash** = partitions are written over the current install. `userdata`
@@ -35,11 +35,11 @@ script next to them, and flash.
 ## Usage
 
 1. Put `dirty_flash.bat` in the folder with the extracted `*.img` files
-   (OTARipper output + a clean stock `lk.img`).
+   (LineageOSRipper output + a clean stock `lk.img`).
 2. Boot the phone into bootloader mode: `adb reboot bootloader`
 3. Run the script, read the plan table, answer the prompts.
 
-Typical answers for a OTAOS update:
+Typical answers for a LineageOSOS update:
 
 - **Firmware images?** `N` — the ROM update does not touch early-boot firmware,
   and a wrong preloader can hard-brick the phone.
@@ -66,7 +66,7 @@ For a full image set the plan looks like this:
 | `boot`, `dtbo`, `init_boot`, `vendor_boot` | `boot_a`, `dtbo_a`, ... |
 | `vbmeta`, `vbmeta_system`, `vbmeta_vendor` | `vbmeta_a`, ... (optional `VBMETA_FLAGS`) |
 | `lk.img` *(asked, hash-checked)* | `lk_a` |
-| `apusys ccu connsys_bt connsys_gnss connsys_wifi dpm gpueb gz logo mcf_ota mcupm modem pi_img scp spmfw sspm tee vcp` *(asked)* | `name_a` |
+| `apusys ccu connsys_bt connsys_gnss connsys_wifi dpm gpueb gz logo mcf_LineageOS mcupm modem pi_img scp spmfw sspm tee vcp` *(asked)* | `name_a` |
 | `preloader_raw.img` *(asked)* | `preloader_a` |
 
 **Phase 2 — fastbootd (`fastboot reboot fastboot`)**
@@ -110,7 +110,7 @@ ROM zip either.
 ## lk.img and fenrir
 
 Some unofficial builds for tetris ship a **fenrir-patched** `lk.img` in their
-OTA payload. Fenrir ([R0rt1z2/fenrir](https://github.com/R0rt1z2/fenrir),
+LineageOS payload. Fenrir ([R0rt1z2/fenrir](https://github.com/R0rt1z2/fenrir),
 archived Sep 2026) is a PoC that patches `sec_get_vfy_policy()` inside the
 `bl2_ext` component to break the secure boot chain after the preloader. Google
 made changes with PI so it's not working right know (basic integrity only, 
@@ -172,7 +172,7 @@ firmware archive is released.
   `flash_all.bat`, the reference for partition names and mappings.
 - [R0rt1z2/fenrir](https://github.com/R0rt1z2/fenrir) — the `bl2_ext`/`lk`
   boot chain write-up.
-- [syedinsaf/otaripper](https://github.com/syedinsaf/otaripper) — OTA payload
+- [syedinsaf/LineageOSripper](https://github.com/syedinsaf/LineageOSripper) — LineageOS payload
   extraction.
 
 ## Disclaimer
