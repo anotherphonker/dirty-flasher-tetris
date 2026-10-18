@@ -6,7 +6,7 @@ user data**.
 
 Made for updates that ship as `payload.bin` and cannot be sideloaded directly
 (e.g. an unofficial build whose LineageOS is not signed for your recovery): extract
-the images with [LineageOSripper](https://github.com/syedinsaf/LineageOSripper), drop this
+the images with [otaripper](https://github.com/syedinsaf/otaripper), drop this
 script next to them, and flash.
 
 > **Dirty flash** = partitions are written over the current install. `userdata`
@@ -35,7 +35,7 @@ script next to them, and flash.
 ## Usage
 
 1. Put `dirty_flash.bat` in the folder with the extracted `*.img` files
-   (LineageOSRipper output + a clean stock `lk.img`).
+   (otaripper output + a clean stock `lk.img`).
 2. Boot the phone into bootloader mode: `adb reboot bootloader`
 3. Run the script, read the plan table, answer the prompts.
 
@@ -172,7 +172,7 @@ firmware archive is released.
   `flash_all.bat`, the reference for partition names and mappings.
 - [R0rt1z2/fenrir](https://github.com/R0rt1z2/fenrir) — the `bl2_ext`/`lk`
   boot chain write-up.
-- [syedinsaf/LineageOSripper](https://github.com/syedinsaf/LineageOSripper) — LineageOS payload
+- [syedinsaf/otaripper](https://github.com/syedinsaf/otaripper) — LineageOS payload
   extraction.
 
 ## Disclaimer
