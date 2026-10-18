@@ -126,8 +126,7 @@ archived Sep 2026) is a PoC that patches `sec_get_vfy_policy()` inside the
 `bl2_ext` component to break the secure boot chain after the preloader. Google
 has since made Play Integrity changes, so it does not work properly anymore —
 basic integrity only; key attestation apps still report the bootloader as
-locked with RKP — and flashing it may trigger a factory reset. You do **not**
-need it on a stock unlocked bootloader anyway.
+locked with RKP — and flashing it may trigger a factory reset.
 
 Instead, use a clean stock `lk.img` and let the script verify it. Known stock
 hash for `Tetris_B4.1-260928-1140` (`lk.img`):
